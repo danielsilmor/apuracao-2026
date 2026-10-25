@@ -61,6 +61,24 @@ svg{display:block;width:100%;height:auto;overflow:visible}
 button{font:inherit;font-size:13px;border:1px solid var(--line);background:var(--panel);color:var(--fg);border-radius:6px;padding:6px 10px;cursor:pointer}
 button:hover{border-color:var(--muted)}
 button:focus-visible{outline:2px solid var(--pl);outline-offset:2px}
+.reg{display:flex;flex-direction:column;gap:14px;border-top:1px solid var(--line);padding-top:22px;margin-top:6px}
+.reg-head{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:8px}
+.reg h2{font-family:var(--f-display);font-weight:800;font-size:clamp(20px,3vw,26px);margin:0}
+.reg-list{display:flex;flex-direction:column;gap:10px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+.reg-row{display:grid;grid-template-columns:120px minmax(0,1fr) 210px;align-items:center;gap:14px}
+.reg-name{font-family:var(--f-display);font-weight:700;font-size:15px}
+.reg-track{position:relative;height:30px;background:var(--grid);border-radius:6px;overflow:hidden}
+.reg-fill{position:absolute;inset:0 auto 0 0;width:0;background:var(--half);border-radius:6px;transition:width .6s,background-color .3s}
+.reg-lbl{position:absolute;left:10px;top:50%;transform:translateY(-50%);font-family:var(--f-mono);font-size:12.5px;font-weight:500;font-variant-numeric:tabular-nums;color:var(--fg);white-space:nowrap}
+.reg-lbl.in{color:#fff}
+.reg-pcts{display:flex;justify-content:flex-end;gap:14px;font-family:var(--f-display);font-weight:700;font-size:16px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.reg-pcts .pt{color:var(--pt)} .reg-pcts .pl{color:var(--pl)}
+.reg-pcts .lead{text-decoration:underline;text-underline-offset:4px;text-decoration-thickness:2px}
+@media (max-width:640px){
+  .reg-row{grid-template-columns:1fr auto;grid-template-areas:"n p" "t t";gap:6px 10px}
+  .reg-name{grid-area:n} .reg-pcts{grid-area:p} .reg-track{grid-area:t}
+}
+@media (prefers-reduced-motion:reduce){.reg-fill{transition:none}}
 .msg{font-size:13.5px;padding:10px 12px;border:1px dashed var(--line);border-radius:8px;color:var(--muted)}
 .msg[hidden]{display:none!important}
 </style>
@@ -110,6 +128,15 @@ button:focus-visible{outline:2px solid var(--pl);outline-offset:2px}
     <button id="btnRefresh" type="button">Atualizar agora</button>
     <button id="btnZoom" type="button">Aproximar (46–54%)</button>
   </div>
+
+  <section class="reg" aria-labelledby="regTitle">
+    <div class="reg-head">
+      <h2 id="regTitle">Apuração por região</h2>
+      <div class="status"><span class="dot" id="regDot"></span><span id="regStatus">Carregando as regiões…</span></div>
+    </div>
+    <div class="reg-list" id="regList"></div>
+    <p class="sub">O tamanho da barra é o percentual de seções já apuradas na região. A cor é de quem lidera ali: vermelho Lula, azul Flávio. Percentuais de votos válidos.</p>
+  </section>
 
   <section class="notes">
     <div>
@@ -309,6 +336,65 @@ async function tick() {
   }
   busy = false;
 }
+
+// ---- Apuração por região: soma os resultados oficiais de cada estado ----
+const REG_ELE = "6258";
+const REGIOES = [
+  ["Norte", ["ac", "am", "ap", "pa", "ro", "rr", "to"]],
+  ["Nordeste", ["al", "ba", "ce", "ma", "pb", "pe", "pi", "rn", "se"]],
+  ["Centro-Oeste", ["df", "go", "ms", "mt"]],
+  ["Sudeste", ["es", "mg", "rj", "sp"]],
+  ["Sul", ["pr", "rs", "sc"]],
+];
+const regUF = {};   // último resultado bom de cada estado: {l, f, st, ts}
+function regRowsInit() {
+  $("regList").innerHTML = REGIOES.map(([nm], i) => `
+    <div class="reg-row">
+      <div class="reg-name">${nm}</div>
+      <div class="reg-track" role="img" id="regTrack${i}" aria-label="${nm}: 0% apurado">
+        <div class="reg-fill" id="regFill${i}"></div>
+        <span class="reg-lbl" id="regLbl${i}">0,00% apurado</span>
+      </div>
+      <div class="reg-pcts"><span class="pt" id="regL${i}">Lula —</span><span class="pl" id="regF${i}">Flávio —</span></div>
+    </div>`).join("");
+}
+async function loadRegioes() {
+  const ufs = REGIOES.flatMap(r => r[1]);
+  const res = await Promise.allSettled(ufs.map(async uf => {
+    const r = await fetch(`https://resultados.tse.jus.br/oficial/ele2026/${REG_ELE}/dados/${uf}/${uf}-c0001-e${String(REG_ELE).padStart(6, "0")}-u.json?t=${Date.now()}`, { cache: "no-store" });
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    const j = await r.json();
+    let l = 0, f = 0;
+    for (const a of (j.carg && j.carg[0] && j.carg[0].agr) || []) for (const p of a.par || []) for (const k of p.cand || []) {
+      if (k.n === "13") l = num(k.vap); else if (k.n === "22") f = num(k.vap);
+    }
+    regUF[uf] = { l, f, st: num(j.s.st), ts: num(j.s.ts) };
+  }));
+  const falhas = res.filter(x => x.status === "rejected").length;
+  REGIOES.forEach(([nm, list], i) => {
+    let l = 0, f = 0, st = 0, ts = 0;
+    for (const uf of list) { const d = regUF[uf]; if (d) { l += d.l; f += d.f; st += d.st; ts += d.ts; } }
+    const ap = ts > 0 ? 100 * st / ts : 0;
+    const v = l + f, pl = v > 0 ? 100 * l / v : null, pf = v > 0 ? 100 - pl : null;
+    const fill = $("regFill" + i), lbl = $("regLbl" + i);
+    fill.style.width = Math.min(100, ap) + "%";
+    fill.style.background = pl == null || Math.abs(pl - pf) < 0.005 ? "var(--half)" : pl > pf ? "var(--pt)" : "var(--pl)";
+    lbl.textContent = fmt(ap) + "% apurado";
+    lbl.classList.toggle("in", ap >= 22);
+    $("regTrack" + i).setAttribute("aria-label", `${nm}: ${fmt(ap)}% apurado`);
+    const eL = $("regL" + i), eF = $("regF" + i);
+    eL.textContent = "Lula " + (pl == null ? "—" : fmt(pl) + "%");
+    eF.textContent = "Flávio " + (pf == null ? "—" : fmt(pf) + "%");
+    eL.classList.toggle("lead", pl != null && pl > pf);
+    eF.classList.toggle("lead", pf != null && pf > pl);
+  });
+  if (falhas === res.length) regStatusSet("err", "TSE não respondeu. Nova tentativa em 1 minuto.");
+  else regStatusSet("live", "Atualizado às " + new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) + (falhas ? ` · ${falhas} estado(s) sem resposta, mantidos os últimos dados` : ""));
+}
+function regStatusSet(kind, txt) { $("regDot").className = "dot" + (kind ? " " + kind : ""); $("regStatus").textContent = txt; }
+regRowsInit();
+loadRegioes();
+setInterval(loadRegioes, 60000);
 
 $("btnRefresh").addEventListener("click", tick);
 $("btnZoom").addEventListener("click", () => { zoom = !zoom; $("btnZoom").textContent = zoom ? "Afastar (40–60%)" : "Aproximar (46–54%)"; draw(); });
