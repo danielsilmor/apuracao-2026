@@ -61,28 +61,6 @@ svg{display:block;width:100%;height:auto;overflow:visible}
 button{font:inherit;font-size:13px;border:1px solid var(--line);background:var(--panel);color:var(--fg);border-radius:6px;padding:6px 10px;cursor:pointer}
 button:hover{border-color:var(--muted)}
 button:focus-visible{outline:2px solid var(--pl);outline-offset:2px}
-.ext{display:flex;flex-direction:column;gap:12px;border-top:1px solid var(--line);padding-top:22px;margin-top:6px}
-.ext h2{font-family:var(--f-display);font-weight:800;font-size:clamp(20px,3vw,26px);margin:0;text-wrap:balance}
-.ext-head{display:flex;flex-direction:column;gap:6px}
-.ext-head .sub{max-width:75ch}
-.ext-sum{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(220px,100%),1fr));gap:12px}
-.ext-sum .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:4px;min-width:0}
-.ext-sum .card.main{border-color:var(--muted)}
-.ext-sum .v{font-family:var(--f-display);font-weight:800;font-size:22px;font-variant-numeric:tabular-nums;line-height:1.15}
-.ext-sum .v .pt{color:var(--pt)} .ext-sum .v .pl{color:var(--pl)}
-.ext-sum .m{font-family:var(--f-mono);font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
-.tablewrap{overflow-x:auto;background:var(--panel);border:1px solid var(--line);border-radius:10px}
-.ext-table{border-collapse:collapse;width:100%;min-width:720px;font-size:13.5px;font-variant-numeric:tabular-nums}
-.ext-table th,.ext-table td{padding:7px 10px;text-align:right;white-space:nowrap;border-bottom:1px solid var(--grid)}
-.ext-table th{font-family:var(--f-mono);font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
-.ext-table th.grp{text-align:center;border-bottom:1px solid var(--line);border-left:1px solid var(--line)}
-.ext-table thead tr:last-child th:nth-child(4),.ext-table thead tr:last-child th:nth-child(6),.ext-table td.sep{border-left:1px solid var(--line)}
-.ext-table .l{text-align:left}
-.ext-table td.l small{color:var(--muted);font-size:12px;margin-left:6px}
-.ext-table tr.tot td{font-weight:600;background:var(--grid)}
-.ext-table td.n{color:var(--muted)}
-.up{color:var(--pt)} .down{color:var(--pl)}
-.ext-table td.na{color:var(--muted)}
 .msg{font-size:13.5px;padding:10px 12px;border:1px dashed var(--line);border-radius:8px;color:var(--muted)}
 .msg[hidden]{display:none!important}
 </style>
@@ -132,34 +110,6 @@ button:focus-visible{outline:2px solid var(--pl);outline-offset:2px}
     <button id="btnRefresh" type="button">Atualizar agora</button>
     <button id="btnZoom" type="button">Aproximar (46–54%)</button>
   </div>
-
-  <section class="ext" id="ext" aria-labelledby="extTitle">
-    <div class="ext-head">
-      <h2 id="extTitle">Exterior: países já totalmente apurados</h2>
-      <p class="sub">Só entram os países com 100% das seções apuradas hoje. Para comparar, o 1º turno de 2026 e o 2º turno de 2022 usam exatamente os mesmos países. No 1º turno, contam apenas os votos de Lula e Flávio.</p>
-      <div class="status"><span class="dot" id="extDot"></span><span id="extStatus">Carregando o exterior…</span></div>
-    </div>
-    <div class="ext-sum" id="extSum"></div>
-    <div class="tablewrap">
-      <table class="ext-table" id="extTable">
-        <thead>
-          <tr>
-            <th rowspan="2" class="l">País</th>
-            <th colspan="3" class="grp">2º turno 2026 · hoje</th>
-            <th colspan="2" class="grp">1º turno 2026 · só Lula e Flávio</th>
-            <th colspan="2" class="grp">2º turno 2022</th>
-          </tr>
-          <tr>
-            <th>Lula</th><th>Flávio</th><th>votos</th>
-            <th>Lula</th><th>Δ Lula</th>
-            <th>Lula</th><th>Δ Lula</th>
-          </tr>
-        </thead>
-        <tbody id="extBody"></tbody>
-      </table>
-    </div>
-    <p class="sub" id="extFoot"></p>
-  </section>
 
   <section class="notes">
     <div>
@@ -359,107 +309,6 @@ async function tick() {
   }
   busy = false;
 }
-
-// ---- Exterior: países 100% apurados no 2º turno de hoje × 1º turno 2026 × 2º turno 2022 ----
-// Base por cidade: [código TSE, cidade, país, Lula 1T26, Flávio 1T26, Lula 2T22, Jair 2T22]
-const EXT = [["29254","Abidjã","Costa do Marfim",24,13,26,15],["29262","Abu Dhabi","Emirados Árabes Unidos",512,659,404,593],["99198","Abuja","Nigéria",0,0,null,null],["29270","Accra","Gana",8,2,14,4],["99325","Adis Abeba","Etiópia",0,0,null,null],["30457","Amsterdã","Países Baixos",4624,1081,4511,1242],["29289","Amã","Jordânia",675,59,407,125],["29297","Ancara","Turquia",24,7,20,8],["29300","Argel","Argélia",27,3,null,null],["29319","Artigas","Uruguai",104,227,125,292],["29327","Assunção","Paraguai",250,740,317,920],["39241","Astana","Cazaquistão",0,0,null,null],["29335","Atenas","Grécia",196,230,193,242],["39080","Atlanta","Estados Unidos",1221,3276,1180,3373],["99171","Bagdá","Iraque",0,0,null,null],["39128","Baku","Azerbaijão",0,0,null,null],["99350","Bamako","Mali",0,0,null,null],["29343","Bangkok","Tailândia",40,51,47,50],["29351","Barcelona","Espanha",3692,995,3246,1053],["99473","Manama","Bahrein",17,27,11,25],["29360","Beirute","Líbano",2538,1138,1591,1099],["29378","Belgrado","Sérvia",30,13,36,12],["38881","Belmopan","Belize",0,0,null,null],["29386","Berlim","Alemanha",6504,925,6206,1011],["29394","Bissau","Guiné-Bissau",17,17,20,25],["29408","Bogotá","Colômbia",245,252,380,293],["29416","Boston","Estados Unidos",3919,11228,3508,10960],["39209","Bratislava","Eslováquia",35,13,43,19],["39187","Brazzaville","Congo",0,0,null,null],["29424","Bridgetown","Barbados",0,0,null,null],["29432","Bruxelas","Bélgica",2516,1959,2115,1444],["29440","Bucareste","Romênia",31,22,38,19],["29459","Budapeste","Hungria",331,93,481,83],["29467","Buenos Aires","Argentina",3507,1449,4373,2240],["29475","Caiena","Guiana Francesa",484,518,598,722],["29483","Cairo","Egito",46,12,46,23],["29491","Camberra","Austrália",1478,805,1264,709],["30651","Cantão","China",48,35,27,61],["29505","Caracas","Venezuela",128,125,0,6],["99384","Castries","Santa Lúcia",0,0,null,null],["29513","Chicago","Estados Unidos",1485,953,1586,1251],["29521","Chuy","Uruguai",0,0,null,null],["29530","Cidade do Cabo","África do Sul",90,58,100,62],["29556","Ciudad del Este","Paraguai",202,2239,238,2719],["29564","Ciudad Guayana","Venezuela",0,0,0,0],["99210","Cobija","Bolívia",0,0,null,null],["29572","Cochabamba","Bolívia",57,119,101,169],["30929","Colombo","Sri Lanka",0,0,null,null],["38903","Conacri","Guiné",0,0,null,null],["29580","Concepción","Paraguai",2,32,3,32],["29599","Copenhague","Dinamarca",1166,195,1047,198],["38920","Cotonou","Benin",0,0,null,null],["29602","Córdoba","Argentina",182,159,180,161],["29610","Dacar","Senegal",51,24,39,28],["29629","Dacca","Bangladesh",0,0,null,null],["29637","Damasco","Síria",97,7,null,null],["38962","Dar es Salaam","Tanzânia",11,5,6,2],["29653","Doha","Catar",147,173,151,221],["29661","Dublin","Irlanda",6025,1559,6023,1339],["29645","Díli","Timor-Leste",16,27,22,37],["99503","Edimburgo","Reino Unido",488,139,null,null],["29670","Encarnación","Paraguai",14,122,16,121],["29688","Estocolmo","Suécia",1770,505,1785,542],["30961","Faro","Portugal",1097,1305,934,862],["29696","Frankfurt","Alemanha",3657,1320,3647,1453],["30669","Gaborone","Botsuana",0,0,null,null],["29700","Genebra","Suíça",2298,2226,2320,2279],["29718","Georgetown","Guiana",7,43,8,58],["98000","Cidade da Guatemala","Guatemala",33,67,35,108],["29742","Hamamatsu","Japão",884,4698,841,4916],["29750","Hanói","Vietnã",13,14,13,6],["29769","Harare","Zimbábue",0,0,null,null],["30902","Hartford","Estados Unidos",557,1207,525,933],["29777","Havana","Cuba",36,1,32,0],["29785","Helsinque","Finlândia",475,155,444,163],["29793","Hong Kong","China",99,105,80,95],["29807","Houston","Estados Unidos",1265,2586,1458,2748],["29815","Iaundé","Camarões",0,0,null,null],["38989","Ierevan","Armênia",0,0,null,null],["29823","Iquitos","Peru",0,0,null,null],["29831","Islamabade","Paquistão",0,0,null,null],["39306","Istambul","Turquia",90,30,76,44],["29840","Jacarta","Indonésia",8,19,15,32],["29173","Katmandu","Nepal",1,11,2,13],["29858","Kiev","Ucrânia",4,19,null,null],["99430","Kingston","Jamaica",4,14,11,10],["29874","Kinshasa","RD Congo",0,0,1,9],["29882","Kuaite","Kuwait",54,12,10,29],["29890","Kuala Lumpur","Malásia",44,27,32,26],["29904","La Paz","Bolívia",98,106,74,126],["29912","Lagos","Nigéria",26,6,21,4],["29939","Libreville","Gabão",0,0,null,null],["99341","Lilongué","Malaui",0,0,null,null],["29947","Lima","Peru",248,380,314,430],["29955","Lisboa","Portugal",14948,10548,12872,7085],["39160","Liubliana","Eslovênia",61,25,52,21],["29963","Lomé","Togo",0,0,null,null],["29971","Londres","Reino Unido",8152,5227,9064,6004],["29980","Los Angeles","Estados Unidos",2131,1994,1955,2014],["29998","Luanda","Angola",147,101,124,99],["99287","Lusaca","Zâmbia",0,0,13,1],["30066","Madri","Espanha",3571,2343,3078,2410],["39263","Malabo","Guiné Equatorial",0,0,null,null],["30082","Manila","Filipinas",26,33,22,34],["30074","Manágua","Nicarágua",33,35,34,38],["30090","Maputo","Moçambique",89,113,140,166],["99511","Marselha","França",715,104,null,null],["39102","Mascate","Omã",12,20,14,32],["39004","Mendoza","Argentina",49,55,56,88],["30104","Cidade do México","México",585,589,633,696],["30112","Miami","Estados Unidos",2260,8914,3058,13187],["30120","Milão","Itália",3593,2908,3371,3044],["30147","Montevidéu","Uruguai",686,465,745,540],["30155","Montreal","Canadá",3823,1456,3871,1741],["30163","Moscou","Rússia",49,25,46,23],["30171","Mumbai","Índia",5,1,11,4],["30180","Munique","Alemanha",3364,1287,3534,1559],["30198","Nagóia","Japão",2022,11480,2117,12704],["30201","Nairóbi","Quênia",26,17,35,25],["99180","Nassau","Bahamas",6,10,9,14],["39322","Nicósia","Chipre",24,20,15,9],["30210","Nova Délhi","Índia",24,26,23,14],["30228","Nova York","Estados Unidos",4570,4684,5331,6068],["99490","Orlando","Estados Unidos",1332,6981,null,null],["30244","Oslo","Noruega",592,198,628,197],["30252","Ottawa","Canadá",794,395,680,381],["30260","Cidade do Panamá","Panamá",236,336,252,392],["30279","Paramaribo","Suriname",121,366,131,354],["30287","Paris","França",8054,1654,7885,1622],["30295","Paso de los Libres","Argentina",2,3,null,null],["30309","Pedro Juan Caballero","Paraguai",59,219,98,260],["30317","Pequim","China",104,22,47,23],["30325","Port of Spain","Trinidad e Tobago",4,10,16,15],["30341","Porto","Portugal",10356,7559,9450,5134],["30333","Porto Príncipe","Haiti",5,0,2,3],["30350","Praga","Tchéquia",279,70,286,73],["30368","Praia","Cabo Verde",39,20,40,22],["30376","Pretória","África do Sul",62,172,83,207],["99155","Puerto Iguazú","Argentina",7,15,5,0],["99236","Puerto Quijarro","Bolívia",0,0,null,null],["99295","Pyongyang","Coreia do Norte",0,0,null,null],["30392","Quito","Equador",130,171,115,255],["30406","Rabat","Marrocos",30,6,38,8],["30414","Ramallah","Palestina",1078,46,584,61],["30422","Riade","Arábia Saudita",52,22,38,18],["30430","Rio Branco","Uruguai",7,9,13,9],["99244","Rivera","Uruguai",0,0,null,null],["30449","Roma","Itália",2555,1478,2449,1648],["99147","Saint John's","Antígua e Barbuda",0,0,null,null],["30465","Salto del Guairá","Paraguai",19,496,29,549],["30473","Santa Cruz de la Sierra","Bolívia",194,1162,138,870],["99279","Santa Elena de Uairén","Venezuela",0,0,null,null],["30481","Santiago","Chile",928,809,905,922],["30988","Sarajevo","Bósnia e Herzegovina",0,0,null,null],["30538","Seul","Coreia do Sul",123,72,126,70],["29548","Singapura","Singapura",190,92,230,131],["99333","Saint-Georges-de-l'Oyapock","Guiana Francesa",0,0,null,null],["30562","Sydney","Austrália",3084,1774,3057,1863],["30490","São Domingos","República Dominicana",65,106,80,138],["30503","São Francisco","Estados Unidos",2176,1323,2447,1568],["30511","São José","Costa Rica",173,159,166,200],["30520","São Salvador","El Salvador",23,48,27,44],["39225","São Tomé","São Tomé e Príncipe",0,0,null,null],["30546","Sófia","Bulgária",34,8,24,7],["30570","Taipé","Taiwan",77,107,101,132],["99317","Talin","Estônia",142,19,156,23],["99104","Tbilisi","Geórgia",0,0,null,null],["30597","Teerã","Irã",14,11,8,9],["30600","Tegucigalpa","Honduras",17,34,29,47],["30619","Tel Aviv","Israel",92,523,353,405],["99139","Tirana","Albânia",0,0,null,null],["30635","Toronto","Canadá",4670,3319,5188,4111],["30686","Trípoli","Líbia",2,0,null,null],["30708","Túnis","Tunísia",12,9,8,4],["30627","Tóquio","Japão",2328,8423,2454,10020],["39284","Uagadugu","Burkina Faso",0,0,null,null],["39063","Vancouver","Canadá",3221,1873,3442,1980],["30740","Varsóvia","Polônia",183,65,212,68],["30767","Viena","Áustria",979,311,960,379],["30783","Washington","Estados Unidos",2419,1858,2552,2494],["30805","Wellington","Nova Zelândia",234,64,389,164],["30821","Windhoek","Namíbia",6,5,4,31],["30848","Xangai","China",116,41,125,62],["99376","Yangon","Mianmar",0,0,null,null],["39020","Zagreb","Croácia",29,17,26,15],["30864","Zurique","Suíça",2896,2299,3189,2762]];
-const EXT_ELE = "6258";
-const EXT_BASE = `https://resultados.tse.jus.br/oficial/ele2026/${EXT_ELE}/dados/zz/`;
-const pad6 = s => String(s).padStart(6, "0");
-const extDone = {};            // cidade -> [Lula, Flávio], só cidades 100% apuradas (não mudam mais)
-const fmtN = n => n == null ? "—" : Math.round(n).toLocaleString("pt-BR");
-const share = (a, b) => (a + b) > 0 ? 100 * a / (a + b) : null;
-const dpp = (a, b) => {
-  if (a == null || b == null) return `<td class="na">—</td>`;
-  const d = a - b, cls = d > 0.005 ? "up" : d < -0.005 ? "down" : "";
-  return `<td class="${cls}">${d >= 0 ? "+" : "−"}${fmt(Math.abs(d), 1)}</td>`;
-};
-function extStatus(kind, txt) { $("extDot").className = "dot" + (kind ? " " + kind : ""); $("extStatus").textContent = txt; }
-async function pool(items, n, fn) {
-  let i = 0;
-  await Promise.all(Array.from({ length: n }, async () => {
-    while (i < items.length) { const it = items[i++]; try { await fn(it); } catch (e) { /* tenta na próxima rodada */ } }
-  }));
-}
-let extBusy = false;
-async function loadExterior() {
-  if (extBusy) return; extBusy = true;
-  try {
-    const r = await fetch(EXT_BASE + `zz-e${pad6(EXT_ELE)}-ab.json?t=` + Date.now(), { cache: "no-store" });
-    if (!r.ok) throw new Error("HTTP " + r.status);
-    const ab = await r.json();
-    const st = {};
-    for (const a of ab.abr || []) st[a.cdabr] = a.s;
-    const pend = EXT.map(x => x[0]).filter(cd => {
-      const s = st[cd];
-      return s && num(s.ts) > 0 && num(s.st) >= num(s.ts) && !extDone[cd];
-    });
-    await pool(pend, 6, async cd => {
-      const q = await fetch(EXT_BASE + `zz${cd}-c0001-e${pad6(EXT_ELE)}-u.json?t=` + Date.now(), { cache: "no-store" });
-      if (!q.ok) return;
-      const j = await q.json();
-      let l = 0, f = 0;
-      for (const a of (j.carg && j.carg[0] && j.carg[0].agr) || []) for (const p of a.par || []) for (const k of p.cand || []) {
-        if (k.n === "13") l = num(k.vap); else if (k.n === "22") f = num(k.vap);
-      }
-      extDone[cd] = [l, f];
-    });
-    renderExterior(st, ab);
-  } catch (e) {
-    extStatus("err", "Não foi possível ler o exterior agora. Nova tentativa em 2 minutos.");
-  }
-  extBusy = false;
-}
-function renderExterior(st, ab) {
-  const by = new Map();
-  let citiesDone = 0;
-  for (const [cd, cid, pais, l1, f1, l22, j22] of EXT) {
-    if (!by.has(pais)) by.set(pais, { pais, n: 0, ok: true, l: 0, f: 0, l1: 0, f1: 0, l22: 0, j22: 0, miss22: 0, has22: false });
-    const g = by.get(pais), s = st[cd], done = extDone[cd];
-    g.n++;
-    if (done) { g.l += done[0]; g.f += done[1]; citiesDone++; }
-    else if (!(s && num(s.ts) === 0)) g.ok = false;   // cidade sem seções nesta eleição não bloqueia o país
-    g.l1 += l1 || 0; g.f1 += f1 || 0;
-    if (l22 != null) { g.l22 += l22; g.j22 += j22; g.has22 = true; } else g.miss22++;
-  }
-  const all = [...by.values()];
-  const rows = all.filter(g => g.ok && (g.l + g.f) > 0).sort((a, b) => (b.l + b.f) - (a.l + a.f));
-  const T = rows.reduce((t, g) => { for (const k of ["l", "f", "l1", "f1", "l22", "j22"]) t[k] += g[k]; return t; }, { l: 0, f: 0, l1: 0, f1: 0, l22: 0, j22: 0 });
-  const s26 = share(T.l, T.f), s1 = share(T.l1, T.f1), s22 = share(T.l22, T.j22);
-  const pct = v => v == null ? "—" : fmt(v, 1) + "%";
-  const card = (cls, label, a, b, nA, nB, extra) => `<div class="card ${cls}"><div class="label">${label}</div>
-    <div class="v"><span class="pt">Lula ${pct(a)}</span> × <span class="pl">${nB} ${pct(b)}</span></div><div class="m">${extra}</div></div>`;
-  if (!rows.length) {
-    $("extSum").innerHTML = "";
-    $("extBody").innerHTML = `<tr><td class="l" colspan="8">Nenhum país totalmente apurado ainda. Os votos do exterior começam a ser divulgados depois das 17h (Brasília); cada país aparece aqui quando todas as suas seções forem apuradas.</td></tr>`;
-    $("extFoot").textContent = "";
-  } else {
-    const dl = (x) => x == null || s26 == null ? "" : ` · Lula hoje ${s26 - x >= 0 ? "+" : "−"}${fmt(Math.abs(s26 - x), 1)} p.p.`;
-    $("extSum").innerHTML =
-      card("main", `2º turno 2026 · ${rows.length} ${rows.length === 1 ? "país" : "países"}`, s26, s26 == null ? null : 100 - s26, "", "Flávio", `${fmtN(T.l)} × ${fmtN(T.f)} votos`) +
-      card("", "1º turno 2026 · mesmos países", s1, s1 == null ? null : 100 - s1, "", "Flávio", `${fmtN(T.l1)} × ${fmtN(T.f1)} votos${dl(s1)}`) +
-      card("", "2º turno 2022 · mesmos países", s22, s22 == null ? null : 100 - s22, "", "Jair", `${fmtN(T.l22)} × ${fmtN(T.j22)} votos${dl(s22)}`);
-    const tr = g => {
-      const a = share(g.l, g.f), b = share(g.l1, g.f1), c = g.has22 ? share(g.l22, g.j22) : null;
-      const mark = g.has22 && g.miss22 ? "*" : "";
-      return `<tr><td class="l">${g.pais}${g.n > 1 ? `<small>${g.n} cidades</small>` : ""}</td>
-        <td class="sep">${pct(a)}</td><td>${pct(a == null ? null : 100 - a)}</td><td class="n">${fmtN(g.l + g.f)}</td>
-        <td class="sep">${pct(b)}</td>${dpp(a, b)}
-        <td class="sep">${c == null ? "—" : pct(c) + mark}</td>${dpp(a, c)}</tr>`;
-    };
-    $("extBody").innerHTML = `<tr class="tot"><td class="l">Total dos países apurados</td>
-        <td class="sep">${pct(s26)}</td><td>${pct(s26 == null ? null : 100 - s26)}</td><td class="n">${fmtN(T.l + T.f)}</td>
-        <td class="sep">${pct(s1)}</td>${dpp(s26, s1)}<td class="sep">${pct(s22)}</td>${dpp(s26, s22)}</tr>` + rows.map(tr).join("");
-    const partial = rows.some(g => g.has22 && g.miss22);
-    $("extFoot").textContent = "Percentuais dos votos válidos dados aos dois candidatos. Δ Lula = Lula hoje menos Lula na eleição comparada, em pontos percentuais." +
-      (partial ? " * Neste país, parte das cidades de votação de hoje não teve seções no 2º turno de 2022." : "") +
-      " Sem votação em 2022 = —.";
-  }
-  const paisesTot = all.filter(g => (g.l1 + g.f1 + g.l22 + g.j22) > 0).length;
-  extStatus("live", `${rows.length} de ${paisesTot} países com votos já apurados · ${citiesDone} de ${EXT.length} cidades · TSE ${ab.hg ? ab.hg.slice(0, 5) : ""}`);
-}
-loadExterior();
-setInterval(loadExterior, 120000);
 
 $("btnRefresh").addEventListener("click", tick);
 $("btnZoom").addEventListener("click", () => { zoom = !zoom; $("btnZoom").textContent = zoom ? "Afastar (40–60%)" : "Aproximar (46–54%)"; draw(); });
