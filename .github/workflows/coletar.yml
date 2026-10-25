@@ -1,0 +1,101 @@
+# Coleta a apuração do 2º turno de 2026 (Presidente) no site do TSE a cada 30 segundos
+# e grava os pontos em pts2026.json, no branch "dados" deste repositório.
+# Roda sozinho nos servidores do GitHub; não depende de ninguém com a página aberta.
+name: Coletar apuração
+
+on:
+  schedule:
+    # Horários em UTC (Brasília = UTC-3). Início 16:50 de Brasília.
+    - cron: "50 19 25 10 *"
+    # Reforços a cada 15 min (17h às 23h45 de Brasília), caso o GitHub atrase ou o coletor pare.
+    - cron: "*/15 20-23 25 10 *"
+    - cron: "*/15 0-2 26 10 *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: coletor-apuracao
+  cancel-in-progress: false
+
+jobs:
+  coletar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 355
+    steps:
+      - name: Coletar TSE em loop
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TSE_URL: https://resultados.tse.jus.br/oficial/ele2026/6258/dados/br/br-c0001-e006258-u.json
+        run: |
+          set -u
+          if [ "$(date -u +%Y)" != "2026" ]; then echo "Fora de 2026. Nada a fazer."; exit 0; fi
+          git config --global user.name "coletor-apuracao"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          REMOTE="https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+
+          # Prepara o branch "dados" (cria na primeira vez)
+          if git clone -q --depth 1 --branch dados "$REMOTE" d 2>/dev/null; then
+            cd d
+          else
+            mkdir d && cd d
+            git init -q -b dados
+            git remote add origin "$REMOTE"
+            echo '[]' > pts2026.json
+            git add pts2026.json
+            git commit -qm "Início da coleta"
+            git push -q origin dados
+          fi
+          [ -s pts2026.json ] || echo '[]' > pts2026.json
+
+          # Já terminou? (100% das seções)
+          if jq -e 'length > 0 and .[-1][0] >= 100' pts2026.json >/dev/null; then
+            echo "Apuração já concluída. Nada a fazer."; exit 0
+          fi
+
+          FIM=$(( $(date +%s) + 350*60 ))
+          LIMITE=$(date -d "2026-10-26 03:00:00 UTC" +%s)   # meia-noite de Brasília
+          [ "$LIMITE" -lt "$FIM" ] && FIM=$LIMITE
+          ULTIMO_PUSH=0
+
+          publicar() {
+            if ! git diff --quiet pts2026.json; then
+              git add pts2026.json
+              git commit -qm "Apuração: $(jq -r '.[-1][0]' pts2026.json)% das seções"
+              for tentativa in 1 2 3; do
+                if git push -q origin dados; then break; fi
+                git pull -q --rebase origin dados || true
+                sleep 3
+              done
+            fi
+            ULTIMO_PUSH=$(date +%s)
+          }
+
+          while [ "$(date +%s)" -lt "$FIM" ]; do
+            if curl -fsS --max-time 20 "${TSE_URL}?t=$(date +%s)" -o r.json; then
+              P=$(jq -c '
+                  def n: gsub("\\."; "") | sub(","; ".") | tonumber;
+                  [ .carg[0].agr[].par[].cand[] ] as $c
+                  | [ (.s.pst | n),
+                      ([ $c[] | select(.n == "13") | .pvap | n ][0] // 0),
+                      ([ $c[] | select(.n == "22") | .pvap | n ][0] // 0),
+                      ((.hg // "")[0:5]) ]' r.json 2>/dev/null || echo "")
+              if [ -n "$P" ]; then
+                jq -c --argjson p "$P" '
+                    if ($p[0] > 0 and ($p[1] + $p[2]) > 0 and (length == 0 or .[-1][0] != $p[0]))
+                    then . + [$p] else . end' pts2026.json > t.json && mv t.json pts2026.json
+                echo "$(date -u +%H:%M:%S) UTC  ->  $P"
+                PST=$(echo "$P" | jq '.[0]')
+                if [ "$(date +%s)" -ge $(( ULTIMO_PUSH + 60 )) ]; then publicar; fi
+                if jq -e -n --argjson v "$PST" '$v >= 100' >/dev/null; then
+                  publicar; echo "100% das seções totalizadas. Fim."; exit 0
+                fi
+              fi
+            else
+              echo "$(date -u +%H:%M:%S) UTC  ->  TSE não respondeu, tentando de novo"
+            fi
+            sleep 30
+          done
+          publicar
+          echo "Tempo do coletor esgotado; o próximo agendamento continua."

@@ -1,0 +1,70 @@
+APURAÇÃO 2026 × 2022 — COMO COLOCAR NO AR (grátis, ~10 minutos)
+=====================================================================
+
+O que tem nesta pasta
+- index.html ........................ a página (gráfico, placar, curva de 2022 embutida)
+- .github/workflows/coletar.yml ..... o coletor automático: roda nos servidores do
+                                      GitHub, consulta o TSE a cada 30 s a partir das
+                                      16h50 e grava os pontos no próprio repositório
+
+Tudo roda no GitHub, de graça. Não depende do seu computador ligado
+nem de ninguém com a página aberta.
+
+
+PASSO 1 — Conta
+  Entre em https://github.com (crie uma conta grátis se não tiver).
+
+PASSO 2 — Repositório
+  Clique em "+" (canto superior direito) → "New repository".
+  - Repository name: apuracao-2026
+  - Marque "Public"
+  - Clique em "Create repository".
+
+PASSO 3 — Enviar os arquivos
+  Na página do repositório recém-criado, clique em "uploading an existing file".
+  Arraste PARA A JANELA, de uma vez, o arquivo index.html E a pasta .github
+  (selecione os dois nesta pasta e arraste juntos).
+  Confira na lista que aparece ".github/workflows/coletar.yml" e "index.html".
+  Clique em "Commit changes".
+
+  Se a pasta .github não subir pelo arrastar:
+  "Add file" → "Create new file", digite o nome
+      .github/workflows/coletar.yml
+  cole o conteúdo do arquivo coletar.yml (abra no Bloco de Notas) e
+  clique em "Commit changes".
+
+PASSO 4 — Ligar o site
+  No repositório: "Settings" → "Pages" (menu da esquerda).
+  Em "Build and deployment": Source = "Deploy from a branch",
+  Branch = "main" e pasta "/ (root)" → "Save".
+  Em 1–2 minutos o endereço aparece no topo dessa tela:
+      https://SEU-USUARIO.github.io/apuracao-2026/
+
+PASSO 5 — Testar o coletor (recomendado, antes das 17h)
+  Aba "Actions" → se aparecer um aviso, clique para habilitar os workflows.
+  Clique em "Coletar apuração" → "Run workflow" → "Run workflow".
+  Abra a execução: no log aparecem linhas como
+      19:30:05 UTC  ->  [0,0,0,"19:19"]
+  (zeros antes das 17h são normais). Depois de ~1 minuto pode CANCELAR
+  essa execução de teste: o agendamento automático começa às 16h50.
+  Aparecerá um branch novo chamado "dados" com o arquivo pts2026.json.
+
+Pronto. É só divulgar o link do Passo 4.
+
+
+COMO FUNCIONA DURANTE A APURAÇÃO
+- 16h50 (Brasília): o coletor começa sozinho. Pode atrasar alguns minutos,
+  por isso há reforços agendados a cada 15 min até 23h45.
+- A cada 30 s ele lê o TSE; a cada ~1 min grava os pontos novos no branch "dados".
+- Quem abre a página carrega todos os pontos já coletados (curva completa desde
+  o início) e, enquanto estiver com ela aberta, também lê o TSE direto a cada 30 s.
+- Ele para sozinho em 100% das seções ou à meia-noite.
+- Na aba Actions podem aparecer execuções "canceladas": são os reforços que
+  não precisaram rodar porque o coletor já estava funcionando. É normal.
+
+FONTES
+- 2026: resultados.tse.jus.br — ele2026/6258/dados/br/br-c0001-e006258-u.json
+- 2022: boletins de urna oficiais do 2º turno (dadosabertos.tse.jus.br,
+  bweb_2t_*_311020221535.zip), ordenados pelo horário de recebimento de cada
+  boletim (DT_BU_RECEBIDO). Totais conferem com o oficial:
+  Lula 60.345.999 × Bolsonaro 58.206.354.
