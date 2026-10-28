@@ -1,0 +1,61 @@
+# Confere todo dia se o TSE publicou os boletins de urna do 2º turno de 2026.
+# Quando publicar, roda o modelo de projeção (base: 1º turno de 2026) e grava
+# projecao-2t-2026.json na raiz do site. A página passa a mostrar esse teste sozinha.
+name: Projeção 2º turno 2026
+
+on:
+  schedule:
+    - cron: "17 */6 * * *"     # a cada 6 horas
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: projecao-2t-2026
+  cancel-in-progress: false
+
+jobs:
+  projetar:
+    runs-on: windows-latest
+    timeout-minutes: 340
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Já foi feito?
+        id: feito
+        shell: pwsh
+        run: |
+          if (Test-Path projecao-2t-2026.json) { "sim=1" >> $env:GITHUB_OUTPUT; Write-Output "Projeção já publicada. Nada a fazer." }
+
+      - name: O TSE já publicou o 2º turno?
+        id: tse
+        if: steps.feito.outputs.sim != '1'
+        shell: pwsh
+        run: |
+          $d = Invoke-RestMethod "https://dadosabertos.tse.jus.br/api/3/action/package_show?id=resultados-2026-boletim-de-urna"
+          $u = $d.result.resources | Where-Object { $_.url -match 'bweb_2t_AC_(\d{12})\.zip$' } | Select-Object -First 1
+          if ($u) {
+            $stamp = [regex]::Match($u.url, 'bweb_2t_AC_(\d{12})\.zip$').Groups[1].Value
+            "stamp=$stamp" >> $env:GITHUB_OUTPUT; Write-Output "Publicado: $stamp"
+          } else { Write-Output "Ainda não publicado." }
+
+      - name: Rodar o modelo
+        if: steps.tse.outputs.stamp != ''
+        shell: powershell
+        run: |
+          $m = "$env:GITHUB_WORKSPACE\modelo"
+          New-Item -ItemType Directory -Force "$m\dados" | Out-Null
+          & "$m\extrair.ps1" -Work "$m\dados" -Ano 2026 -Turno 1 -Stamp 051020261403 -OutFile "$m\dados\secoes_2026_1t.tsv"
+          & "$m\extrair.ps1" -Work "$m\dados" -Ano 2026 -Turno 2 -Stamp "${{ steps.tse.outputs.stamp }}" -OutFile "$m\dados\secoes_2026_2t.tsv"
+          & "$m\rodar.ps1" -Alvo "$m\dados\secoes_2026_2t.tsv" -Base "$m\dados\secoes_2026_1t.tsv" -Modo 2T -Saida "$env:GITHUB_WORKSPACE\projecao-2t-2026.json"
+
+      - name: Publicar
+        if: steps.tse.outputs.stamp != ''
+        shell: pwsh
+        run: |
+          git config user.name "projecao-apuracao"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add projecao-2t-2026.json
+          git commit -m "Projeção do 2º turno de 2026 (boletins de urna do TSE)"
+          git push
