@@ -15,6 +15,7 @@ public class Sec {
   public string key, uf; public int mun, uf_i, reg_i;
   public long t, aptos; public double V; public double[] y;   // alvo: votos válidos e participação por categoria
   public double Vb; public double[] b; public bool matched;   // base
+  public double tb = double.NaN, ta;   // horário de chegada (segundos desde a 0h do dia da eleição): base e alvo
 }
 
 public static class Projecao {
@@ -63,6 +64,10 @@ public static class Projecao {
       }
     }
 
+    // Dia de cada eleição (0h), para medir horários de chegada no mesmo relógio
+    Func<IEnumerable<long>, long> DayStart = ts => { var v = ts.Where(x => x > 0).OrderBy(x => x).ToArray(); return v.Length == 0 ? 0 : (v[v.Length / 2] / 86400) * 86400; };
+    long baseDay = DayStart(bas.Select(r => r.t)), tgtDay = DayStart(tgt.Select(r => r.t));
+
     // Monta seções-alvo
     var munIdx = new Dictionary<string, int>(); var ufIdx = new Dictionary<string, int>(); var regIdx = new Dictionary<string, int>();
     var secs = new List<Sec>(); int matched = 0, semBase = 0;
@@ -78,6 +83,7 @@ public static class Projecao {
       Row br; double[] agg;
       if (baseSec.TryGetValue(s.key, out br) && (s.b = Shares(mode, br.valid, br.v13, br.v22)) != null) {
         s.Vb = mode == "1T" ? br.valid : br.v13 + br.v22; s.matched = true; matched++;
+        if (br.t > 0) s.tb = br.t - baseDay;
       } else if ((munB.TryGetValue(mk, out agg) || ufB.TryGetValue(r.uf, out agg)) && (s.b = Shares(mode, agg[1], agg[2], agg[3])) != null) {
         double vb = mode == "1T" ? agg[1] : agg[2] + agg[3];
         s.Vb = agg[0] > 0 ? r.aptos * vb / agg[0] : vb; semBase++;
@@ -93,6 +99,14 @@ public static class Projecao {
     var ufReg = new int[nU]; var munUF = new int[nM];
     foreach (var s in secs) { ufReg[s.uf_i] = s.reg_i; munUF[s.mun] = s.uf_i; }
 
+    // Horário de chegada na base para seções sem correspondência: média do município, senão da UF
+    {
+      var mS = new double[nM]; var mC = new double[nM]; var uS = new double[nU]; var uC = new double[nU];
+      foreach (var s in secs) { s.ta = s.t - tgtDay; if (!double.IsNaN(s.tb)) { mS[s.mun] += s.tb; mC[s.mun]++; uS[s.uf_i] += s.tb; uC[s.uf_i]++; } }
+      double all = secs.Where(s => !double.IsNaN(s.tb)).Select(s => s.tb).DefaultIfEmpty(0).Average();
+      foreach (var s in secs) if (double.IsNaN(s.tb)) s.tb = mC[s.mun] > 0 ? mS[s.mun] / mC[s.mun] : uC[s.uf_i] > 0 ? uS[s.uf_i] / uC[s.uf_i] : all;
+    }
+
     double[] final = new double[K]; double vt = 0;
     foreach (var s in secs) { for (int k = 0; k < K; k++) final[k] += s.V * s.y[k]; vt += s.V; }
     for (int k = 0; k < K; k++) final[k] /= vt;
@@ -105,6 +119,7 @@ public static class Projecao {
     // Projeção para os primeiros n apurados, com pesos opcionais (bootstrap).
     // Swing = efeito do perfil (faixa de voto anterior) estimado por UF, encolhido para região e país,
     //         + ajuste do município (resíduo médio do município, encolhido para zero).
+    double[] capY = null, capV = null;   // quando preenchidos, guardam a previsão de cada seção não apurada
     Func<int, double[], double[], double[]> Project = (n, wMun, wSec) => {
       var SNb = new double[NB, K]; var WNb = new double[NB]; var SN = new double[K]; double WN = 0;
       var SRb = new double[nR * NB, K]; var WRb = new double[nR * NB];
@@ -149,6 +164,7 @@ public static class Projecao {
         for (int k = 0; k < K; k++) { yh[k] = Math.Max(0, Math.Min(1, s.b[k] + dUb[ui, k] + SM[s.mun, k] / (WM[s.mun] + kMun))); sum += yh[k]; }
         double Vh = s.Vb * rM[s.mun];
         for (int k = 0; k < K; k++) tot[k] += Vh * (sum > 0 ? yh[k] / sum : 1.0 / K);
+        if (capY != null) { for (int k = 0; k < K; k++) capY[i * K + k] = sum > 0 ? yh[k] / sum : 1.0 / K; capV[i] = Vh; }
       }
       double T = tot.Sum(); for (int k = 0; k < K; k++) tot[k] /= T;
       return tot;
@@ -201,7 +217,69 @@ public static class Projecao {
       band.Add("[" + pct.ToString("0.0", IC) + "," + string.Join(",", parts) + "]");
       
     }
-    sb.Append(",\"band\":[").Append(string.Join(",", band)).Append("]}");
+    sb.Append(",\"band\":[").Append(string.Join(",", band)).Append("]");
+
+    // Trajetória prevista: as seções que faltam chegam na ordem em que a mesma seção chegou na eleição de base.
+    // O horário previsto é o horário da base + o atraso típico observado nas últimas urnas apuradas.
+    var traj = new List<string>();
+    Func<double, string> Hora = sec => { long x = (long)Math.Round(sec); x = ((x % 86400) + 86400) % 86400; return (x / 3600).ToString("00") + ":" + (x % 3600 / 60).ToString("00"); };
+    for (int cpi = 1; cpi <= 19; cpi++) {
+      double cp = cpi * 5; int n = (int)Math.Ceiling(N * cp / 100.0);
+      capY = new double[N * K]; capV = new double[N];
+      Project(n, null, null);
+      var cy = capY; var cvv = capV; capY = null; capV = null;
+      // Ordem prevista das que faltam: cada UF continua do ponto em que está agora no "relógio" da base.
+      // tauU = horário da base em que a UF tinha a mesma fração apurada que tem agora;
+      // a seção chega em  agora + (horário na base − tauU) × ritmo, ritmo = velocidade desta noite / velocidade da base.
+      double now = secs[n - 1].ta;
+      var cntU = new int[nU]; var totU = new int[nU];
+      for (int i = 0; i < N; i++) { totU[secs[i].uf_i]++; if (i < n) cntU[secs[i].uf_i]++; }
+      var tbU = new List<double>[nU]; for (int u = 0; u < nU; u++) tbU[u] = new List<double>();
+      foreach (var s in secs) tbU[s.uf_i].Add(s.tb);
+      var tauU = new double[nU];
+      for (int u = 0; u < nU; u++) { tbU[u].Sort(); int q = Math.Min(tbU[u].Count - 1, Math.Max(0, (int)((long)cntU[u] * tbU[u].Count / Math.Max(1, totU[u])))); tauU[u] = tbU[u].Count > 0 ? tbU[u][q] : 0; }
+      var tbAll = secs.Select(s => s.tb).OrderBy(x => x).ToArray(); var taCnt = secs.Take(n).Select(s => s.ta).OrderBy(x => x).ToArray();
+      // ritmo medido na metade mais recente do que já chegou (ignora as urnas do exterior que chegam horas antes)
+      double a0 = secs[n / 2].ta, b0 = tbAll[n / 2], bNow = tbAll[Math.Min(N - 1, n)];
+      double ritmo = (bNow - b0) > 60 ? Math.Max(0.3, Math.Min(3, (now - a0) / (bNow - b0))) : 1;
+      var pred = new double[N];
+      for (int i = n; i < N; i++) pred[i] = now + Math.Max(0, secs[i].tb - tauU[secs[i].uf_i]) * ritmo;
+      double off = (ritmo - 1) * 100;   // relatório: % mais rápido/lento que a base
+      var rest = Enumerable.Range(n, N - n).OrderBy(i => pred[i]).ThenBy(i => secs[i].tb).ThenBy(i => secs[i].key, StringComparer.Ordinal).ToArray();
+      var acc = new double[K]; for (int i = 0; i < n; i++) for (int k = 0; k < K; k++) acc[k] += secs[i].V * secs[i].y[k];
+      Func<int> Leader = () => acc[0] >= acc[1] ? 0 : 1;
+      int lead = Leader(); var pts = new List<string>(); var vir = new List<double[]>(); var virH = new List<string>(); int lead0 = lead; int nextPct = (int)cp + 1;
+      for (int j = 0; j < rest.Length; j++) {
+        int i = rest[j]; for (int k = 0; k < K; k++) acc[k] += cvv[i] * cy[i * K + k];
+        int cnt = n + j + 1; double pc = 100.0 * cnt / N; double tt = pred[i];
+        int l = Leader();
+        if (l != lead) { vir.Add(new double[] { pc, l }); virH.Add(Hora(tt)); lead = l; }
+        if (pc >= nextPct || j == rest.Length - 1) {
+          double T = acc.Sum();
+          pts.Add("[" + pc.ToString("0.0", IC) + "," + string.Join(",", acc.Select(v => (100 * v / T).ToString("0.000", IC))) + ",\"" + Hora(tt) + "\"]");
+          while (nextPct <= pc) nextPct++;
+        }
+      }
+      traj.Add("{\"cp\":" + cp.ToString(IC) + ",\"ritmo\":" + Math.Round(off).ToString(IC) + ",\"pts\":[" + string.Join(",", pts) + "],\"viradas\":[" + Viradas(vir, virH, lead0) + "]}");
+    }
+    // Viradas reais da contagem
+    var virR = new List<double[]>(); var virRH = new List<string>(); int ld0 = -1; { var a = new double[K]; int ld = -1;
+      for (int i = 0; i < N; i++) { for (int k = 0; k < K; k++) a[k] += secs[i].V * secs[i].y[k]; int l = a[0] >= a[1] ? 0 : 1;
+        if (ld >= 0 && l != ld) { virR.Add(new double[] { 100.0 * (i + 1) / N, l }); virRH.Add(Hora(secs[i].ta)); } if (ld < 0) ld0 = l; ld = l; } }
+    sb.Append(",\"traj\":[").Append(string.Join(",", traj)).Append("]");
+    sb.Append(",\"viradasReais\":[").Append(Viradas(virR, virRH, ld0)).Append("]}");
     return sb.ToString();
+  }
+
+  // Junta oscilações de liderança muito próximas (menos de 0,5% das seções) numa virada só
+  static string Viradas(List<double[]> v, List<string> h, int lead0) {
+    var o = new List<string>(); int lead = lead0, i = 0;
+    while (i < v.Count) {
+      int j = i; while (j + 1 < v.Count && v[j + 1][0] - v[j][0] < 0.5) j++;
+      int after = (int)v[j][1];
+      if (after != lead) { o.Add("[" + v[i][0].ToString("0.00", IC) + ",\"" + h[i] + "\"," + after + "]"); lead = after; }
+      i = j + 1;
+    }
+    return string.Join(",", o);
   }
 }
