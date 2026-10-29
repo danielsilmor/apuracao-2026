@@ -18,7 +18,7 @@ concurrency:
 jobs:
   projetar:
     runs-on: windows-latest
-    timeout-minutes: 340
+    timeout-minutes: 350
     steps:
       - uses: actions/checkout@v4
 
@@ -46,9 +46,11 @@ jobs:
         run: |
           $m = "$env:GITHUB_WORKSPACE\modelo"
           New-Item -ItemType Directory -Force "$m\dados" | Out-Null
+          # base: 2º turno de 2022; informação extra e ordem de chegada: 1º turno de 2026
+          & "$m\extrair.ps1" -Work "$m\dados" -Ano 2022 -Turno 2 -Stamp 311020221535 -OutFile "$m\dados\secoes_2022_2t.tsv"
           & "$m\extrair.ps1" -Work "$m\dados" -Ano 2026 -Turno 1 -Stamp 051020261403 -OutFile "$m\dados\secoes_2026_1t.tsv"
           & "$m\extrair.ps1" -Work "$m\dados" -Ano 2026 -Turno 2 -Stamp "${{ steps.tse.outputs.stamp }}" -OutFile "$m\dados\secoes_2026_2t.tsv"
-          & "$m\rodar.ps1" -Alvo "$m\dados\secoes_2026_2t.tsv" -Base "$m\dados\secoes_2026_1t.tsv" -Modo 2T -Saida "$env:GITHUB_WORKSPACE\projecao-2t-2026.json"
+          & "$m\rodar3.ps1" -Alvo "$m\dados\secoes_2026_2t.tsv" -Base "$m\dados\secoes_2022_2t.tsv" -Aux "$m\dados\secoes_2026_1t.tsv" -Ordem "$m\dados\secoes_2026_1t.tsv" -Modo 2T -Saida "$env:GITHUB_WORKSPACE\projecao-2t-2026.json"
 
       - name: Publicar
         if: steps.tse.outputs.stamp != ''

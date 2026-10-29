@@ -1,7 +1,8 @@
 # Baixa os boletins de urna (BU) do TSE e resume por seção eleitoral (cargo Presidente).
 # Saída: um TSV por eleição com uma linha por seção:
-# uf, municipio, zona, secao, epoch_recebido, aptos, comparecimento, validos, v13, v22
-param([string]$Work, [string]$Ano, [string]$Turno, [string]$Stamp, [string]$OutFile)
+# uf, municipio, zona, secao, epoch_recebido, aptos, comparecimento, validos, v13, vB
+# vB = votos do candidato B (22 em 2022/2026; 17 = Bolsonaro em 2018, use -NumB 17). Sem horário de chegada (2018): epoch = 0.
+param([string]$Work, [string]$Ano, [string]$Turno, [string]$Stamp, [string]$OutFile, [string]$NumB = "22", [string]$Prefix = "bweb", [string]$StampZZ = "", [string[]]$SoUFs = @())
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 Add-Type -AssemblyName System.IO.Compression, System.IO.Compression.FileSystem
@@ -10,7 +11,9 @@ Add-Type -ReferencedAssemblies System.IO.Compression, System.IO.Compression.File
 using System; using System.IO; using System.IO.Compression; using System.Collections.Generic; using System.Text; using System.Globalization;
 public class SecX { public string uf, mun, zona, secao; public long t = long.MaxValue; public long aptos, comp, valid, v13, v22; public bool seen; }
 public static class BUx {
-  static int idx(string[] h, string n) { int i = Array.IndexOf(h, "\"" + n + "\""); if (i < 0) throw new Exception("coluna " + n); return i; }
+  public static string NumB = "22";
+  static int idxOpt(string[] h, params string[] ns) { foreach (var n in ns) { int i = Array.IndexOf(h, "\"" + n + "\""); if (i >= 0) return i; } return -1; }
+  static int idx(string[] h, params string[] ns) { int i = idxOpt(h, ns); if (i < 0) throw new Exception("coluna " + ns[0]); return i; }
   public static int Append(string zipPath, StreamWriter w) {
     var d = new Dictionary<string, SecX>();
     using (var z = ZipFile.OpenRead(zipPath)) {
@@ -18,8 +21,8 @@ public static class BUx {
         if (!e.Name.EndsWith(".csv")) continue;
         using (var sr = new StreamReader(e.Open(), Encoding.GetEncoding(1252))) {
           var h = sr.ReadLine().Split(';');
-          int iUF = idx(h,"SG_UF"), iMun = idx(h,"CD_MUNICIPIO"), iZ = idx(h,"NR_ZONA"), iS = idx(h,"NR_SECAO"),
-              iC = idx(h,"CD_CARGO_PERGUNTA"), iT = idx(h,"DT_BU_RECEBIDO"), iA = idx(h,"QT_APTOS"), iCo = idx(h,"QT_COMPARECIMENTO"),
+          int iUF = idx(h,"SG_UF","SG_ UF"), iMun = idx(h,"CD_MUNICIPIO"), iZ = idx(h,"NR_ZONA"), iS = idx(h,"NR_SECAO"),
+              iC = idx(h,"CD_CARGO_PERGUNTA"), iT = idxOpt(h,"DT_BU_RECEBIDO"), iA = idx(h,"QT_APTOS"), iCo = idx(h,"QT_COMPARECIMENTO"),
               iTV = idx(h,"DS_TIPO_VOTAVEL"), iN = idx(h,"NR_VOTAVEL"), iV = idx(h,"QT_VOTOS");
           string line;
           string[] fmts = { "dd/MM/yyyy HH:mm:ss", "yyyy-MM-dd HH:mm:ss" };
@@ -35,12 +38,12 @@ public static class BUx {
               d[key] = s;
             }
             DateTime dt;
-            if (DateTime.TryParseExact(c[iT].Trim('"'), fmts, CultureInfo.InvariantCulture, DateTimeStyles.None, out dt)) {
+            if (iT >= 0 && DateTime.TryParseExact(c[iT].Trim('"'), fmts, CultureInfo.InvariantCulture, DateTimeStyles.None, out dt)) {
               long ep = (long)(dt - new DateTime(1970,1,1)).TotalSeconds; if (ep < s.t) s.t = ep;
             }
             if (c[iTV].Trim('"') != "Nominal") continue;
             long v = long.Parse(c[iV].Trim('"')); string nr = c[iN].Trim('"');
-            s.valid += v; if (nr == "13") s.v13 += v; else if (nr == "22") s.v22 += v;
+            s.valid += v; if (nr == "13") s.v13 += v; else if (nr == NumB) s.v22 += v;
           }
         }
       }
@@ -52,14 +55,17 @@ public static class BUx {
 }
 '@
 }
+[BUx]::NumB = $NumB
 $ufs = 'AC','AL','AM','AP','BA','CE','DF','ES','GO','MA','MG','MS','MT','PA','PB','PE','PI','PR','RJ','RN','RO','RR','RS','SC','SE','SP','TO','ZZ'
+if ($SoUFs.Count -gt 0) { $ufs = $SoUFs }
 $tmp = Join-Path $Work "zip_${Ano}_$Turno"
 New-Item -ItemType Directory -Force $tmp | Out-Null
 $w = New-Object IO.StreamWriter -ArgumentList ($OutFile + '.part'), $false, (New-Object Text.UTF8Encoding $false)
 $total = 0
 foreach ($uf in $ufs) {
   $zip = Join-Path $tmp "$uf.zip"
-  $url = "https://cdn.tse.jus.br/estatistica/sead/eleicoes/eleicoes$Ano/buweb/bweb_${Turno}t_${uf}_$Stamp.zip"
+  $st = if ($uf -eq "ZZ" -and $StampZZ) { $StampZZ } else { $Stamp }
+  $url = "https://cdn.tse.jus.br/estatistica/sead/eleicoes/eleicoes$Ano/buweb/${Prefix}_${Turno}t_${uf}_$st.zip"
   for ($k = 1; $k -le 6; $k++) {
     try { Invoke-WebRequest $url -OutFile $zip; break }
     catch { if ($k -eq 6) { throw }; Write-Output "  falha ao baixar $uf ($($_.Exception.Message)), tentando de novo"; Start-Sleep (20 * $k) }
